@@ -632,7 +632,7 @@ func main() {
 	// Get port from environment or use default
 	port := os.Getenv("PROXY_PORT")
 	if port == "" {
-		port = "8070"
+		port = "8080"
 	}
 
 	// Validate port

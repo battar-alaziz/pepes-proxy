@@ -1,0 +1,14 @@
+name: pepes-proxy
+description: Quick proxy for pepes
+container:
+    image: ghcr.io/lukluk/pepes-proxy:latest
+    port: 8070
+env:
+    - name: SIDRA_API
+      value: http://pepes-api:8070
+    - name: PROXY_PORT
+      value: 8070
+resources:
+    cpu: 500m
+    memory: 1Gi
+    replicas: 1

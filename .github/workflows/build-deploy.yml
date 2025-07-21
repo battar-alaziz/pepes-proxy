@@ -7,8 +7,8 @@ on:
     branches: [ "main" ]
 
 env:
-  REGISTRY: ghcr.io/deployaja/api
-  IMAGE_NAME: api
+  REGISTRY: ghcr.io/deployaja/pepes-proxy
+  IMAGE_NAME: pepes-proxy
   DOCKER_BUILDKIT: 1
 
 jobs:
@@ -44,63 +44,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install Helm
-        uses: azure/setup-helm@v3
+      - name: DeployAja Deploy
+        uses: deployaja/deployaja-cli@v0.0.14
         with:
-          version: 'latest'
-
-      - name: Setup kubeconfig
-        run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
-          chmod 600 ~/.kube/config
-
-      - name: Deploy to k3s with Helm
-        run: |
-          helm repo add pinus-academy https://pinus-academy.github.io/helm-chart 
-          helm repo update
-          helm upgrade --install api pinus-academy/app \
-            --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
-            --set image.tag=${{ github.sha }} \
-            --namespace deployaja \
-            --set ingress.enabled=true \
-            --set ingress.host=deployaja.id \
-            --set migrate.enabled=true \
-            --set deployaja.enabled=true \
-            --set replicaCount=1
-                        
-      - name: Deploy to k3s with Scheduler
-        run: |
-          helm repo add pinus-academy https://pinus-academy.github.io/helm-chart 
-          helm repo update
-          helm upgrade --install scheduler pinus-academy/app \
-            --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
-            --set image.tag=${{ github.sha }} \
-            --namespace deployaja \
-            --set command[0]=npm --set command[1]=run --set command[2]=scheduler \
-            --set livenessProbe.httpGet=null \
-            --set readinessProbe.httpGet=null \
-            --set replicaCount=2 \
-            --set autoscaling.enabled=true \
-            --set livenessProbe.exec.command[0]=ls \
-            --set readinessProbe.exec.command[0]=ls
-
-      - name: Deploy to k3s with Deployer
-        run: |
-          helm repo add pinus-academy https://pinus-academy.github.io/helm-chart 
-          helm repo update
-          helm upgrade --install deployer pinus-academy/app \
-            --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
-            --set image.tag=${{ github.sha }} \
-            --namespace deployaja \
-            --set command[0]=npm --set command[1]=run --set command[2]=deployer \
-            --set livenessProbe.httpGet=null \
-            --set readinessProbe.httpGet=null \
-            --set livenessProbe.exec.command[0]=ls \
-            --set replicaCount=10 \
-            --set autoscaling.enabled=true \
-            --set resources.requests.cpu=500m \
-            --set resources.requests.memory=500Mi \
-            --set resources.limits.cpu=1000m \
-            --set resources.limits.memory=1000Mi \
-            --set readinessProbe.exec.command[0]=ls
+          command: deploy
+          api-token: ${{ secrets.DEPLOYAJA_TOKEN }}
+          additional-args: --set container.image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} 
+          docker-username: ${{ github.actor }}
+          docker-password: ${{ secrets.GITHUB_TOKEN }}
+          docker-registry: ghcr.io

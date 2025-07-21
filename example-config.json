@@ -1,0 +1,117 @@
+{
+  "domains": {
+    "api.example.com": {
+      "routes": [
+        {
+          "path": "/public",
+          "upstream": "public-service:8080",
+          "plugins_data": [
+            {
+              "id": 1,
+              "name_plugin": "cors",
+              "envs": "cors_origin=*,cors_methods=GET,POST,PUT,DELETE,OPTIONS,cors_headers=Content-Type,Authorization",
+              "desc": "CORS for public API",
+              "created_at": "2024-01-01T00:00:00Z",
+              "updated_at": "2024-01-01T00:00:00Z",
+              "deleted_at": null
+            },
+            {
+              "id": 2,
+              "name_plugin": "logging",
+              "envs": "log_level=info",
+              "desc": "Request logging",
+              "created_at": "2024-01-01T00:00:00Z",
+              "updated_at": "2024-01-01T00:00:00Z",
+              "deleted_at": null
+            }
+          ]
+        },
+        {
+          "path": "/secure",
+          "upstream": "secure-service:8080",
+          "plugins_data": [
+            {
+              "id": 3,
+              "name_plugin": "jwt",
+              "envs": "jwt_secret=your-super-secret-jwt-key-here",
+              "desc": "JWT token validation",
+              "created_at": "2024-01-01T00:00:00Z",
+              "updated_at": "2024-01-01T00:00:00Z",
+              "deleted_at": null
+            },
+            {
+              "id": 4,
+              "name_plugin": "ratelimit",
+              "envs": "rate_limit=100,rate_window=60",
+              "desc": "Rate limiting - 100 requests per minute",
+              "created_at": "2024-01-01T00:00:00Z",
+              "updated_at": "2024-01-01T00:00:00Z",
+              "deleted_at": null
+            },
+            {
+              "id": 5,
+              "name_plugin": "logging",
+              "envs": "log_level=debug",
+              "desc": "Detailed logging for secure endpoints",
+              "created_at": "2024-01-01T00:00:00Z",
+              "updated_at": "2024-01-01T00:00:00Z",
+              "deleted_at": null
+            }
+          ]
+        },
+        {
+          "path": "/admin",
+          "upstream": "admin-service:8080",
+          "plugins_data": [
+            {
+              "id": 6,
+              "name_plugin": "auth",
+              "envs": "auth_user=admin,auth_pass=admin123",
+              "desc": "Basic authentication for admin",
+              "created_at": "2024-01-01T00:00:00Z",
+              "updated_at": "2024-01-01T00:00:00Z",
+              "deleted_at": null
+            },
+            {
+              "id": 7,
+              "name_plugin": "ipwhitelist",
+              "envs": "whitelist_ips=192.168.1.1,10.0.0.1,127.0.0.1",
+              "desc": "IP whitelist for admin access",
+              "created_at": "2024-01-01T00:00:00Z",
+              "updated_at": "2024-01-01T00:00:00Z",
+              "deleted_at": null
+            },
+            {
+              "id": 8,
+              "name_plugin": "logging",
+              "envs": "log_level=debug",
+              "desc": "Admin access logging",
+              "created_at": "2024-01-01T00:00:00Z",
+              "updated_at": "2024-01-01T00:00:00Z",
+              "deleted_at": null
+            }
+          ]
+        }
+      ]
+    },
+    "web.example.com": {
+      "routes": [
+        {
+          "path": "/",
+          "upstream": "web-service:8080",
+          "plugins_data": [
+            {
+              "id": 9,
+              "name_plugin": "cors",
+              "envs": "cors_origin=https://web.example.com,cors_methods=GET,POST",
+              "desc": "CORS for web application",
+              "created_at": "2024-01-01T00:00:00Z",
+              "updated_at": "2024-01-01T00:00:00Z",
+              "deleted_at": null
+            }
+          ]
+        }
+      ]
+    }
+  }
+} 

@@ -44,6 +44,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - name: DeployAja Deploy
         uses: deployaja/deployaja-cli@v0.0.14
         with:

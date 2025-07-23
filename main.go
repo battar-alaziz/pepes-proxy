@@ -145,7 +145,7 @@ func (ps *ProxyServer) fetchConfig() {
 	// Get sidra-api URL from environment variable or use default
 	sidraAPI := os.Getenv("SIDRA_API")
 	if sidraAPI == "" {
-		sidraAPI = "http://localhost:8081"
+		sidraAPI = "http://pinus-api"
 	}
 
 	req.SetRequestURI(sidraAPI + "/config")

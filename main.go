@@ -347,7 +347,8 @@ func (ps *ProxyServer) executePlugins(route Route, originalReq *fasthttp.Request
 			if statusCode == 0 {
 				statusCode = 403 // Default to Forbidden
 			}
-			return false, nil, statusCode, result.Error
+			// Return plugin headers from the failed plugin so they can be sent to client
+			return false, result.Headers, statusCode, result.Error
 		}
 
 		// Merge headers from plugin
@@ -433,7 +434,7 @@ func (ps *ProxyServer) handleHTTPWithFirstLine(clientConn net.Conn, reader *bufi
 		pluginSuccess, pluginHeaders, statusCode, err := ps.executePlugins(route, req, getClientIP(clientConn))
 		if err != nil || !pluginSuccess {
 			log.Printf("Error executing plugins: %v", err)
-			clientConn.Write([]byte(getHTTPStatusResponse(statusCode)))
+			clientConn.Write([]byte(getHTTPStatusResponseWithHeaders(statusCode, pluginHeaders)))
 			return
 		}
 
@@ -496,7 +497,7 @@ func (ps *ProxyServer) handleHTTP(clientConn net.Conn, reader *bufio.Reader) {
 		pluginSuccess, pluginHeaders, statusCode, err := ps.executePlugins(route, req, clientIP)
 		if err != nil || !pluginSuccess {
 			log.Printf("Error executing plugins: %v", err)
-			clientConn.Write([]byte(getHTTPStatusResponse(statusCode)))
+			clientConn.Write([]byte(getHTTPStatusResponseWithHeaders(statusCode, pluginHeaders)))
 			return
 		}
 
@@ -613,6 +614,11 @@ func (ps *ProxyServer) tunnel(clientConn, targetConn net.Conn) {
 
 // getHTTPStatusResponse returns the appropriate HTTP response string for a status code
 func getHTTPStatusResponse(statusCode int) string {
+	return getHTTPStatusResponseWithHeaders(statusCode, nil)
+}
+
+// getHTTPStatusResponseWithHeaders returns the appropriate HTTP response string for a status code with custom headers
+func getHTTPStatusResponseWithHeaders(statusCode int, customHeaders map[string]string) string {
 	var title, message, description string
 
 	switch statusCode {
@@ -784,8 +790,21 @@ func getHTTPStatusResponse(statusCode int) string {
 
 	contentLength := len(htmlContent)
 
-	return fmt.Sprintf("HTTP/1.1 %d %s\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: %d\r\n\r\n%s",
-		statusCode, getStatusText(statusCode), contentLength, htmlContent)
+	// Build the response with basic headers
+	response := fmt.Sprintf("HTTP/1.1 %d %s\r\n", statusCode, getStatusText(statusCode))
+	response += "Content-Type: text/html; charset=utf-8\r\n"
+	response += fmt.Sprintf("Content-Length: %d\r\n", contentLength)
+
+	// Add custom headers from plugins
+	if customHeaders != nil {
+		for key, value := range customHeaders {
+			response += fmt.Sprintf("%s: %s\r\n", key, value)
+		}
+	}
+
+	response += "\r\n" + htmlContent
+
+	return response
 }
 
 // getErrorIcon returns an appropriate emoji icon for the error code

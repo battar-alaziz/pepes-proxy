@@ -5,7 +5,7 @@ container:
     port: 8070
 env:
     - name: SIDRA_API
-      value: http://pepes-api:8070
+      value: http://pepes-api
     - name: PROXY_PORT
       value: 8070
 resources:

@@ -53,5 +53,5 @@ jobs:
           api-token: ${{ secrets.DEPLOYAJA_TOKEN }}
           additional-args: --set container.image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} 
           docker-username: ${{ github.actor }}
-          docker-password: ${{ secrets.GITHUB_TOKEN }}
+          docker-password: ${{ secrets.PAT }}
           docker-registry: ghcr.io

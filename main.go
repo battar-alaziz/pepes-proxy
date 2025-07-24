@@ -431,14 +431,8 @@ func (ps *ProxyServer) handleHTTPWithFirstLine(clientConn net.Conn, reader *bufi
 	// Execute plugins if configured
 	if len(route.PluginsData) > 0 {
 		pluginSuccess, pluginHeaders, statusCode, err := ps.executePlugins(route, req, getClientIP(clientConn))
-		if err != nil {
+		if err != nil || !pluginSuccess {
 			log.Printf("Error executing plugins: %v", err)
-			clientConn.Write([]byte(getHTTPStatusResponse(500)))
-			return
-		}
-
-		if !pluginSuccess {
-			log.Printf("Plugin execution failed, stopping request")
 			clientConn.Write([]byte(getHTTPStatusResponse(statusCode)))
 			return
 		}
@@ -500,14 +494,8 @@ func (ps *ProxyServer) handleHTTP(clientConn net.Conn, reader *bufio.Reader) {
 	// Execute plugins if configured
 	if len(route.PluginsData) > 0 {
 		pluginSuccess, pluginHeaders, statusCode, err := ps.executePlugins(route, req, clientIP)
-		if err != nil {
+		if err != nil || !pluginSuccess {
 			log.Printf("Error executing plugins: %v", err)
-			clientConn.Write([]byte(getHTTPStatusResponse(500)))
-			return
-		}
-
-		if !pluginSuccess {
-			log.Printf("Plugin execution failed, stopping request")
 			clientConn.Write([]byte(getHTTPStatusResponse(statusCode)))
 			return
 		}

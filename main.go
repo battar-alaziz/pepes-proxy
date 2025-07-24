@@ -282,7 +282,7 @@ func (ps *ProxyServer) handleHTTPS(clientConn net.Conn, target string, reader *b
 	targetConn, err := ps.getTargetConnection(target)
 	if err != nil {
 		log.Printf("Failed to connect to target %s: %v", target, err)
-		clientConn.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
+		clientConn.Write([]byte(getHTTPStatusResponse(502)))
 		return
 	}
 	defer targetConn.Close()
@@ -295,10 +295,10 @@ func (ps *ProxyServer) handleHTTPS(clientConn net.Conn, target string, reader *b
 }
 
 // executePlugins executes plugins for a given route and returns true if all plugins succeed
-func (ps *ProxyServer) executePlugins(route Route, originalReq *fasthttp.Request, clientIP string) (bool, map[string]string, error) {
+func (ps *ProxyServer) executePlugins(route Route, originalReq *fasthttp.Request, clientIP string) (bool, map[string]string, int, error) {
 	// Check if we have plugins_data
 	if len(route.PluginsData) == 0 {
-		return true, nil, nil // No plugins configured, continue
+		return true, nil, 0, nil // No plugins configured, continue
 	}
 
 	log.Printf("Plugin configuration: %d plugins found", len(route.PluginsData))
@@ -342,7 +342,12 @@ func (ps *ProxyServer) executePlugins(route Route, originalReq *fasthttp.Request
 
 		if !result.Success {
 			log.Printf("Plugin %s failed: %v", pluginData.NamePlugin, result.Error)
-			return false, nil, result.Error
+			// Use plugin-specified status code, or default to 403 if not specified
+			statusCode := result.HTTPStatusCode
+			if statusCode == 0 {
+				statusCode = 403 // Default to Forbidden
+			}
+			return false, nil, statusCode, result.Error
 		}
 
 		// Merge headers from plugin
@@ -353,7 +358,7 @@ func (ps *ProxyServer) executePlugins(route Route, originalReq *fasthttp.Request
 		log.Printf("Plugin %s executed successfully", pluginData.NamePlugin)
 	}
 
-	return true, pluginHeaders, nil
+	return true, pluginHeaders, 0, nil
 }
 
 // findMatchingRoute finds the matching route for a given domain and path
@@ -398,7 +403,7 @@ func (ps *ProxyServer) handleHTTPWithFirstLine(clientConn net.Conn, reader *bufi
 	host := string(req.Header.Peek("Host"))
 	if host == "" {
 		log.Printf("No Host header found")
-		clientConn.Write([]byte("HTTP/1.1 400 Bad Request\r\n\r\n"))
+		clientConn.Write([]byte(getHTTPStatusResponse(400)))
 		return
 	}
 
@@ -417,7 +422,7 @@ func (ps *ProxyServer) handleHTTPWithFirstLine(clientConn net.Conn, reader *bufi
 	route, found := ps.findMatchingRoute(domain, path)
 	if !found {
 		log.Printf("No matching route found for domain: %s, path: %s", domain, path)
-		clientConn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+		clientConn.Write([]byte(getHTTPStatusResponse(404)))
 		return
 	}
 
@@ -425,16 +430,16 @@ func (ps *ProxyServer) handleHTTPWithFirstLine(clientConn net.Conn, reader *bufi
 
 	// Execute plugins if configured
 	if len(route.PluginsData) > 0 {
-		pluginSuccess, pluginHeaders, err := ps.executePlugins(route, req, getClientIP(clientConn))
+		pluginSuccess, pluginHeaders, statusCode, err := ps.executePlugins(route, req, getClientIP(clientConn))
 		if err != nil {
 			log.Printf("Error executing plugins: %v", err)
-			clientConn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
+			clientConn.Write([]byte(getHTTPStatusResponse(500)))
 			return
 		}
 
 		if !pluginSuccess {
 			log.Printf("Plugin execution failed, stopping request")
-			clientConn.Write([]byte("HTTP/1.1 403 Forbidden\r\n\r\n"))
+			clientConn.Write([]byte(getHTTPStatusResponse(statusCode)))
 			return
 		}
 
@@ -464,7 +469,7 @@ func (ps *ProxyServer) handleHTTP(clientConn net.Conn, reader *bufio.Reader) {
 	host := string(req.Header.Peek("Host"))
 	if host == "" {
 		log.Printf("No Host header found")
-		clientConn.Write([]byte("HTTP/1.1 400 Bad Request\r\n\r\n"))
+		clientConn.Write([]byte(getHTTPStatusResponse(400)))
 		return
 	}
 
@@ -483,7 +488,7 @@ func (ps *ProxyServer) handleHTTP(clientConn net.Conn, reader *bufio.Reader) {
 	route, found := ps.findMatchingRoute(domain, path)
 	if !found {
 		log.Printf("No matching route found for domain: %s, path: %s", domain, path)
-		clientConn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+		clientConn.Write([]byte(getHTTPStatusResponse(404)))
 		return
 	}
 
@@ -494,16 +499,16 @@ func (ps *ProxyServer) handleHTTP(clientConn net.Conn, reader *bufio.Reader) {
 
 	// Execute plugins if configured
 	if len(route.PluginsData) > 0 {
-		pluginSuccess, pluginHeaders, err := ps.executePlugins(route, req, clientIP)
+		pluginSuccess, pluginHeaders, statusCode, err := ps.executePlugins(route, req, clientIP)
 		if err != nil {
 			log.Printf("Error executing plugins: %v", err)
-			clientConn.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
+			clientConn.Write([]byte(getHTTPStatusResponse(500)))
 			return
 		}
 
 		if !pluginSuccess {
 			log.Printf("Plugin execution failed, stopping request")
-			clientConn.Write([]byte("HTTP/1.1 403 Forbidden\r\n\r\n"))
+			clientConn.Write([]byte(getHTTPStatusResponse(statusCode)))
 			return
 		}
 
@@ -560,7 +565,7 @@ func (ps *ProxyServer) forwardToUpstream(clientConn net.Conn, originalReq *fasth
 
 	if err := ps.client.Do(newReq, resp); err != nil {
 		log.Printf("Error making request to upstream: %v", err)
-		clientConn.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
+		clientConn.Write([]byte(getHTTPStatusResponse(502)))
 		return
 	}
 
@@ -617,6 +622,231 @@ func (ps *ProxyServer) tunnel(clientConn, targetConn net.Conn) {
 }
 
 // Helper functions
+
+// getHTTPStatusResponse returns the appropriate HTTP response string for a status code
+func getHTTPStatusResponse(statusCode int) string {
+	var title, message, description string
+
+	switch statusCode {
+	case 400:
+		title = "400 Bad Request"
+		message = "Bad Request"
+		description = "The server cannot process your request due to invalid syntax."
+	case 401:
+		title = "401 Unauthorized"
+		message = "Authentication Required"
+		description = "You need to provide valid credentials to access this resource."
+	case 403:
+		title = "403 Forbidden"
+		message = "Access Denied"
+		description = "You don't have permission to access this resource."
+	case 404:
+		title = "404 Not Found"
+		message = "Page Not Found"
+		description = "The requested resource could not be found on this server."
+	case 429:
+		title = "429 Too Many Requests"
+		message = "Rate Limit Exceeded"
+		description = "You have sent too many requests in a given amount of time. Please try again later."
+	case 500:
+		title = "500 Internal Server Error"
+		message = "Internal Server Error"
+		description = "The server encountered an unexpected condition that prevented it from fulfilling the request."
+	case 502:
+		title = "502 Bad Gateway"
+		message = "Bad Gateway"
+		description = "The server received an invalid response from the upstream server."
+	case 503:
+		title = "503 Service Unavailable"
+		message = "Service Unavailable"
+		description = "The server is temporarily unable to handle the request due to maintenance or capacity problems."
+	default:
+		title = "403 Forbidden"
+		message = "Access Denied"
+		description = "You don't have permission to access this resource."
+	}
+
+	htmlContent := fmt.Sprintf(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>%s</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+        
+        .error-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 60px 40px;
+            text-align: center;
+            max-width: 500px;
+            width: 90%%;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .error-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+        
+        .error-code {
+            font-size: 6rem;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .error-title {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 16px;
+        }
+        
+        .error-description {
+            font-size: 1.1rem;
+            color: #718096;
+            line-height: 1.6;
+            margin-bottom: 40px;
+        }
+        
+        .back-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%);
+            color: white;
+            text-decoration: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .back-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+        }
+        
+        .error-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 30px;
+            background: #f7fafc;
+            border-radius: 50%%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+        }
+        
+        @media (max-width: 768px) {
+            .error-container {
+                padding: 40px 20px;
+            }
+            
+            .error-code {
+                font-size: 4rem;
+            }
+            
+            .error-title {
+                font-size: 1.5rem;
+            }
+            
+            .error-description {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="error-icon">
+            %s
+        </div>
+        <div class="error-code">%d</div>
+        <h1 class="error-title">%s</h1>
+        <p class="error-description">%s</p>
+        <a href="javascript:history.back()" class="back-button">Go Back</a>
+    </div>
+</body>
+</html>`, title, getErrorIcon(statusCode), statusCode, message, description)
+
+	contentLength := len(htmlContent)
+
+	return fmt.Sprintf("HTTP/1.1 %d %s\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: %d\r\n\r\n%s",
+		statusCode, getStatusText(statusCode), contentLength, htmlContent)
+}
+
+// getErrorIcon returns an appropriate emoji icon for the error code
+func getErrorIcon(statusCode int) string {
+	switch statusCode {
+	case 400:
+		return "⚠️"
+	case 401:
+		return "🔐"
+	case 403:
+		return "🚫"
+	case 404:
+		return "🔍"
+	case 429:
+		return "⏱️"
+	case 500:
+		return "⚙️"
+	case 502:
+		return "🔌"
+	case 503:
+		return "🚧"
+	default:
+		return "❌"
+	}
+}
+
+// getStatusText returns the standard HTTP status text for a given status code
+func getStatusText(statusCode int) string {
+	switch statusCode {
+	case 400:
+		return "Bad Request"
+	case 401:
+		return "Unauthorized"
+	case 403:
+		return "Forbidden"
+	case 404:
+		return "Not Found"
+	case 429:
+		return "Too Many Requests"
+	case 500:
+		return "Internal Server Error"
+	case 502:
+		return "Bad Gateway"
+	case 503:
+		return "Service Unavailable"
+	default:
+		return "Forbidden"
+	}
+}
 
 // getClientIP extracts the client IP address from the connection
 func getClientIP(conn net.Conn) string {

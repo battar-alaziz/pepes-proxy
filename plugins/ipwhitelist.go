@@ -31,7 +31,8 @@ func (p *IPWhitelistPlugin) Execute(ctx *PluginContext) *PluginResult {
 	}
 
 	return &PluginResult{
-		Success: false,
-		Error:   fmt.Errorf("IP %s not in whitelist", clientIP),
+		Success:        false,
+		Error:          fmt.Errorf("IP %s not in whitelist", clientIP),
+		HTTPStatusCode: 403,
 	}
 }

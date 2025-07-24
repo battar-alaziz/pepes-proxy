@@ -21,8 +21,9 @@ func (p *JWTPlugin) Execute(ctx *PluginContext) *PluginResult {
 	secret := envs["jwt_secret"]
 	if secret == "" {
 		return &PluginResult{
-			Success: false,
-			Error:   fmt.Errorf("jwt_secret not configured"),
+			Success:        false,
+			Error:          fmt.Errorf("jwt_secret not configured"),
+			HTTPStatusCode: 500, // Internal server error for configuration issue
 		}
 	}
 
@@ -30,8 +31,9 @@ func (p *JWTPlugin) Execute(ctx *PluginContext) *PluginResult {
 	authHeader := ctx.Headers["Authorization"]
 	if authHeader == "" {
 		return &PluginResult{
-			Success: false,
-			Error:   fmt.Errorf("no authorization header"),
+			Success:        false,
+			Error:          fmt.Errorf("no authorization header"),
+			HTTPStatusCode: 401,
 		}
 	}
 
@@ -39,8 +41,9 @@ func (p *JWTPlugin) Execute(ctx *PluginContext) *PluginResult {
 	tokenParts := strings.Split(authHeader, " ")
 	if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
 		return &PluginResult{
-			Success: false,
-			Error:   fmt.Errorf("invalid authorization header format"),
+			Success:        false,
+			Error:          fmt.Errorf("invalid authorization header format"),
+			HTTPStatusCode: 401,
 		}
 	}
 
@@ -50,8 +53,9 @@ func (p *JWTPlugin) Execute(ctx *PluginContext) *PluginResult {
 	claims, err := validateJWT(token, secret)
 	if err != nil {
 		return &PluginResult{
-			Success: false,
-			Error:   fmt.Errorf("invalid JWT token: %v", err),
+			Success:        false,
+			Error:          fmt.Errorf("invalid JWT token: %v", err),
+			HTTPStatusCode: 401,
 		}
 	}
 

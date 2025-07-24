@@ -35,11 +35,21 @@ The result returned by each plugin:
 
 ```go
 type PluginResult struct {
-    Success bool              // Whether plugin execution succeeded
-    Error   error             // Error if execution failed
-    Headers map[string]string // Headers to add/modify
+    Success        bool              // Whether plugin execution succeeded
+    Error          error             // Error if execution failed
+    Headers        map[string]string // Headers to add/modify
+    HTTPStatusCode int               // HTTP status code to return on failure (e.g., 401, 403, 429)
 }
 ```
+
+**HTTPStatusCode Field:**
+- Used only when `Success` is `false`
+- Allows plugins to specify appropriate HTTP status codes:
+  - `401` - Unauthorized (for authentication failures)
+  - `403` - Forbidden (for authorization failures)
+  - `429` - Too Many Requests (for rate limiting)
+  - `500` - Internal Server Error (for configuration errors)
+- If not specified (0), defaults to `403 Forbidden`
 
 ## Available Plugins
 
@@ -147,8 +157,9 @@ func (p *MyPlugin) Execute(ctx *PluginContext) *PluginResult {
     customValue := envs["custom_key"]
     if customValue == "" {
         return &PluginResult{
-            Success: false,
-            Error:   fmt.Errorf("custom_key not configured"),
+            Success:        false,
+            Error:          fmt.Errorf("custom_key not configured"),
+            HTTPStatusCode: 500, // Internal server error for configuration issue
         }
     }
     

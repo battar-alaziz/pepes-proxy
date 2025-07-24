@@ -70,8 +70,9 @@ func (p *RateLimitPlugin) Execute(ctx *PluginContext) *PluginResult {
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil {
 		return &PluginResult{
-			Success: false,
-			Error:   fmt.Errorf("invalid rate_limit value: %v", err),
+			Success:        false,
+			Error:          fmt.Errorf("invalid rate_limit value: %v", err),
+			HTTPStatusCode: 500,
 		}
 	}
 
@@ -101,8 +102,9 @@ func (p *RateLimitPlugin) Execute(ctx *PluginContext) *PluginResult {
 
 	if !limiter.Allow(clientID) {
 		return &PluginResult{
-			Success: false,
-			Error:   fmt.Errorf("rate limit exceeded"),
+			Success:        false,
+			Error:          fmt.Errorf("rate limit exceeded"),
+			HTTPStatusCode: 429,
 		}
 	}
 

@@ -12,9 +12,10 @@ type PluginContext struct {
 
 // PluginResult represents the result of plugin execution
 type PluginResult struct {
-	Success bool
-	Error   error
-	Headers map[string]string // Headers to add/modify
+	Success        bool
+	Error          error
+	Headers        map[string]string // Headers to add/modify
+	HTTPStatusCode int               // HTTP status code to return on failure (e.g., 401, 403, 429)
 }
 
 // Plugin interface defines the contract for all plugins

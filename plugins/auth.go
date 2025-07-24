@@ -24,16 +24,18 @@ func (p *AuthPlugin) Execute(ctx *PluginContext) *PluginResult {
 	authHeader := ctx.Headers["Authorization"]
 	if authHeader == "" {
 		return &PluginResult{
-			Success: false,
-			Error:   fmt.Errorf("no authorization header"),
+			Success:        false,
+			Error:          fmt.Errorf("no authorization header"),
+			HTTPStatusCode: 401,
 		}
 	}
 
 	// Parse Basic Auth
 	if !strings.HasPrefix(authHeader, "Basic ") {
 		return &PluginResult{
-			Success: false,
-			Error:   fmt.Errorf("invalid authorization header"),
+			Success:        false,
+			Error:          fmt.Errorf("invalid authorization header"),
+			HTTPStatusCode: 401,
 		}
 	}
 
@@ -41,16 +43,18 @@ func (p *AuthPlugin) Execute(ctx *PluginContext) *PluginResult {
 	decoded, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
 		return &PluginResult{
-			Success: false,
-			Error:   fmt.Errorf("invalid base64 encoding"),
+			Success:        false,
+			Error:          fmt.Errorf("invalid base64 encoding"),
+			HTTPStatusCode: 401,
 		}
 	}
 
 	credentials := strings.SplitN(string(decoded), ":", 2)
 	if len(credentials) != 2 {
 		return &PluginResult{
-			Success: false,
-			Error:   fmt.Errorf("invalid credentials format"),
+			Success:        false,
+			Error:          fmt.Errorf("invalid credentials format"),
+			HTTPStatusCode: 401,
 		}
 	}
 
@@ -58,8 +62,9 @@ func (p *AuthPlugin) Execute(ctx *PluginContext) *PluginResult {
 
 	if user != expectedUser || pass != expectedPass {
 		return &PluginResult{
-			Success: false,
-			Error:   fmt.Errorf("invalid credentials"),
+			Success:        false,
+			Error:          fmt.Errorf("invalid credentials"),
+			HTTPStatusCode: 401,
 		}
 	}
 

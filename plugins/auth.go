@@ -27,6 +27,9 @@ func (p *AuthPlugin) Execute(ctx *PluginContext) *PluginResult {
 			Success:        false,
 			Error:          fmt.Errorf("no authorization header"),
 			HTTPStatusCode: 401,
+			Headers: map[string]string{
+				"WWW-Authenticate": `Basic realm="Protected Area"`,
+			},
 		}
 	}
 
@@ -36,6 +39,9 @@ func (p *AuthPlugin) Execute(ctx *PluginContext) *PluginResult {
 			Success:        false,
 			Error:          fmt.Errorf("invalid authorization header"),
 			HTTPStatusCode: 401,
+			Headers: map[string]string{
+				"WWW-Authenticate": `Basic realm="Protected Area"`,
+			},
 		}
 	}
 
@@ -46,6 +52,9 @@ func (p *AuthPlugin) Execute(ctx *PluginContext) *PluginResult {
 			Success:        false,
 			Error:          fmt.Errorf("invalid base64 encoding"),
 			HTTPStatusCode: 401,
+			Headers: map[string]string{
+				"WWW-Authenticate": `Basic realm="Protected Area"`,
+			},
 		}
 	}
 
@@ -55,6 +64,9 @@ func (p *AuthPlugin) Execute(ctx *PluginContext) *PluginResult {
 			Success:        false,
 			Error:          fmt.Errorf("invalid credentials format"),
 			HTTPStatusCode: 401,
+			Headers: map[string]string{
+				"WWW-Authenticate": `Basic realm="Protected Area"`,
+			},
 		}
 	}
 
@@ -65,6 +77,9 @@ func (p *AuthPlugin) Execute(ctx *PluginContext) *PluginResult {
 			Success:        false,
 			Error:          fmt.Errorf("invalid credentials"),
 			HTTPStatusCode: 401,
+			Headers: map[string]string{
+				"WWW-Authenticate": `Basic realm="Protected Area"`,
+			},
 		}
 	}
 

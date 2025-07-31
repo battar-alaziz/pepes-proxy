@@ -29,10 +29,11 @@ type DomainConfig struct {
 
 // Route represents a route configuration
 type Route struct {
-	Path        string       `json:"path"`
-	Upstream    string       `json:"upstream"`
-	Plugin      string       `json:"plugin"`
-	PluginsData []PluginData `json:"plugins_data"`
+	Path            string       `json:"path"`
+	Upstream        string       `json:"upstream"`
+	Plugin          string       `json:"plugin"`
+	PluginsData     []PluginData `json:"plugins_data"`
+	UsePathAsPrefix bool         `json:"usePathAsPrefix"`
 }
 
 // PluginData represents plugin configuration data
@@ -445,7 +446,7 @@ func (ps *ProxyServer) handleHTTPWithFirstLine(clientConn net.Conn, reader *bufi
 	}
 
 	// Forward request to upstream
-	ps.forwardToUpstream(clientConn, req, route.Upstream)
+	ps.forwardToUpstream(clientConn, req, route)
 }
 
 // handleHTTP handles regular HTTP requests using fasthttp
@@ -508,11 +509,11 @@ func (ps *ProxyServer) handleHTTP(clientConn net.Conn, reader *bufio.Reader) {
 	}
 
 	// Forward request to upstream
-	ps.forwardToUpstream(clientConn, req, route.Upstream)
+	ps.forwardToUpstream(clientConn, req, route)
 }
 
 // forwardToUpstream forwards the request to the configured upstream
-func (ps *ProxyServer) forwardToUpstream(clientConn net.Conn, originalReq *fasthttp.Request, upstream string) {
+func (ps *ProxyServer) forwardToUpstream(clientConn net.Conn, originalReq *fasthttp.Request, route Route) {
 	// Create a new request for upstream
 	newReq := fasthttp.AcquireRequest()
 	defer fasthttp.ReleaseRequest(newReq)
@@ -526,10 +527,27 @@ func (ps *ProxyServer) forwardToUpstream(clientConn net.Conn, originalReq *fasth
 	})
 
 	// Set proper host header for upstream
-	newReq.Header.SetHost(upstream)
+	newReq.Header.SetHost(route.Upstream)
 
-	// Set the target URL (use original path)
-	newReq.SetRequestURI(string(originalReq.RequestURI()))
+	// Get the original request URI
+	originalPath := string(originalReq.RequestURI())
+	targetPath := originalPath
+
+	// If usePathAsPrefix is true, remove the route path from the request URI
+	if route.UsePathAsPrefix && route.Path != "/" {
+		if strings.HasPrefix(originalPath, route.Path) {
+			// Remove the route path prefix
+			targetPath = strings.TrimPrefix(originalPath, route.Path)
+			// Ensure the path starts with /
+			if !strings.HasPrefix(targetPath, "/") {
+				targetPath = "/" + targetPath
+			}
+			log.Printf("Path prefix removed: %s -> %s", originalPath, targetPath)
+		}
+	}
+
+	// Set the target URL
+	newReq.SetRequestURI(targetPath)
 
 	// Copy body if present
 	if originalReq.Body() != nil {
@@ -541,13 +559,13 @@ func (ps *ProxyServer) forwardToUpstream(clientConn net.Conn, originalReq *fasth
 	defer fasthttp.ReleaseResponse(resp)
 
 	// Make the request to upstream
-	upstreamURL := upstream
-	if !strings.HasPrefix(upstream, "http://") && !strings.HasPrefix(upstream, "https://") {
-		upstreamURL = "http://" + upstream
+	upstreamURL := route.Upstream
+	if !strings.HasPrefix(route.Upstream, "http://") && !strings.HasPrefix(route.Upstream, "https://") {
+		upstreamURL = "http://" + route.Upstream
 	}
 
 	// Set the full URL for upstream
-	fullURL := upstreamURL + string(originalReq.RequestURI())
+	fullURL := upstreamURL + targetPath
 	newReq.SetRequestURI(fullURL)
 
 	log.Printf("Forwarding request to upstream: %s", upstreamURL)
